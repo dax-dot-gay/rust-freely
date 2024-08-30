@@ -1,6 +1,4 @@
 pub mod api_client {
-    use std::num::NonZeroU16;
-
     use serde_derive::{Deserialize, Serialize};
 
     use crate::api_wrapper::Api;
@@ -13,7 +11,7 @@ pub mod api_client {
 
     #[derive(Clone, Serialize, Deserialize, Debug)]
     pub struct RequestError {
-        pub code: NonZeroU16,
+        pub code: u16,
         pub reason: Option<String>
     }
 
@@ -21,7 +19,11 @@ pub mod api_client {
     #[serde(tag = "type")]
     pub enum ApiError {
         Request{error: RequestError},
-        AuthenticationError{}
+        AuthenticationError{},
+        UnknownError{},
+        UrlError{},
+        ParseError{},
+        ConnectionError{}
     }
 
 
