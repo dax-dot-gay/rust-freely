@@ -1,7 +1,7 @@
 pub mod api_client {
     use serde_derive::{Deserialize, Serialize};
 
-    use crate::api_wrapper::Api;
+    use crate::{api_models, api_wrapper::Api};
 
     #[derive(Clone, Serialize, Deserialize, Debug)]
     pub enum Auth {
@@ -38,8 +38,22 @@ pub mod api_client {
             Client { _base_url: base, _token: None }
         }
 
-        pub async fn authenticate(&self, auth: Auth) -> Result<Self, ApiError> {
-            Err(ApiError::AuthenticationError {  })
+        pub async fn authenticate(&mut self, auth: Auth) -> Result<Self, ApiError> {
+            match auth {
+                Auth::Token(token) => {
+                    self._token = Some(token);
+                    Ok(self.clone())
+                },
+                Auth::Login { username, password } => {
+                    match self.api().post::<api_models::responses::Login, _>("/auth/login", Some(api_models::requests::Login {alias: username, pass: password})).await {
+                        Ok(data) => {
+                            self._token = Some(data.access_token);
+                            Ok(self.clone())
+                        },
+                        Err(e) => Err(e)
+                    }
+                }
+            }
         }
 
         pub fn url(&self) -> String {

@@ -1,0 +1,12 @@
+services:
+  writefreely:
+    image: algernon/writefreely:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data:rw
+    environment:
+      - "WRITEFREELY_SITE_NAME=Test Instance"
+      - WRITEFREELY_USER_INVITES=admin
+      - WRITEFREELY_ADMIN_USER=username
+      - WRITEFREELY_ADMIN_PASSWORD=password
