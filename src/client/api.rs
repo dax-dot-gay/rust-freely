@@ -33,7 +33,7 @@ pub mod api_wrapper {
 
         pub fn url(&self, endpoint: &str) -> Result<Url, ApiError> {
             if let Ok(result) = Url::parse(self.base().as_str()) {
-                if let Ok(result) = result.join(endpoint) {
+                if let Ok(result) = result.join(vec!["/api", endpoint].join("").as_str()) {
                     Ok(result)
                 } else {
                     Err(ApiError::UrlError {})
@@ -60,7 +60,8 @@ pub mod api_wrapper {
         pub fn request(&self, endpoint: &str, method: Method) -> Result<RequestBuilder, ApiError> {
             if let Ok(http) = self.http() {
                 if let Ok(url) = self.url(endpoint) {
-                    let mut request = http.request(method, url);
+                    let mut request = http.request(method, url.clone());
+                    println!("{:?}", url);
                     if let Some(token) = self.token() {
                         request = request.header(header::AUTHORIZATION, format!("Token {token}"));
                     }
@@ -110,12 +111,21 @@ pub mod api_wrapper {
             }
         }
 
-        pub async fn delete<T: DeserializeOwned + Debug>(
+        pub async fn delete(
             &self,
             endpoint: &str,
-        ) -> Result<T, ApiError> {
+        ) -> Result<(), ApiError> {
             if let Ok(response) = self.request(endpoint, Method::DELETE)?.send().await {
-                self.extract_response::<T>(response).await
+                match response.error_for_status() {
+                    Ok(_) => Ok(()),
+                    Err(resp) => Err(ApiError::Request {
+                        error: RequestError {
+                            code: resp.status().map_or(0, |s| s.as_u16()),
+                            reason: Some(resp.to_string()),
+                        },
+                    })
+                }
+                
             } else {
                 Err(ApiError::ConnectionError {})
             }

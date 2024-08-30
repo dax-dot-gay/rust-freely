@@ -23,7 +23,8 @@ pub mod api_client {
         UnknownError{},
         UrlError{},
         ParseError{text: String},
-        ConnectionError{}
+        ConnectionError{},
+        LoggedOut{}
     }
 
 
@@ -56,6 +57,20 @@ pub mod api_client {
             }
         }
 
+        pub async fn logout(&mut self) -> Result<Self, ApiError> {
+            if self.is_authenticated() {
+                match self.api().delete("/auth/me").await {
+                    Ok(_) => {
+                        self._token = None;
+                        Ok(self.clone())
+                    },
+                    Err(e) => Err(e)
+                }
+            } else {
+                Err(ApiError::LoggedOut {  })
+            }
+        }
+
         pub fn url(&self) -> String {
             self._base_url.clone()
         }
@@ -76,6 +91,8 @@ pub mod api_client {
 
 #[cfg(test)]
 mod tests {
+    use std::{thread::sleep, time::Duration};
+
     use super::*;
     use api_client::{Auth, Client};
     use tokio_test;
@@ -112,6 +129,16 @@ mod tests {
     #[test]
     fn auth_bad_login() {
         assert!(aw!(anon().authenticate(Auth::Login { username: "usernameee".to_string(), password: "passwordeee".to_string() })).is_err())
+    }
+
+    #[test]
+    fn auth_logout() {
+        let mut authed = aw!(auth());
+        println!("{:?}", authed.clone().token());
+        sleep(Duration::from_secs(2));
+        let logged_out = aw!(authed.logout());
+        
+        assert!(!logged_out.unwrap().is_authenticated());
     }
 
 }
