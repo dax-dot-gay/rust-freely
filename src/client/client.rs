@@ -22,7 +22,7 @@ pub mod api_client {
         AuthenticationError{},
         UnknownError{},
         UrlError{},
-        ParseError{},
+        ParseError{text: String},
         ConnectionError{}
     }
 
@@ -72,4 +72,46 @@ pub mod api_client {
             Api::new(self.clone())
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use api_client::{Auth, Client};
+    use tokio_test;
+
+    macro_rules! aw {
+        ($e:expr) => {
+            tokio_test::block_on($e)
+        };
+    }
+
+    fn anon() -> Client {
+        Client::new("http://0.0.0.0:8080".to_string())
+    }
+
+    async fn auth() -> Client {
+        Client::new("http://0.0.0.0:8080".to_string()).authenticate(Auth::Login { username: "username".to_string(), password: "password".to_string() }).await.unwrap()
+    }
+
+    #[test]
+    fn eq_url() {
+        assert_eq!(anon().url(), "http://0.0.0.0:8080".to_string());
+    }
+
+    #[test]
+    fn anon_no_token() {
+        assert!(!anon().is_authenticated());
+    }
+
+    #[test]
+    fn auth_has_token() {
+        assert!(aw!(auth()).is_authenticated())
+    }
+
+    #[test]
+    fn auth_bad_login() {
+        assert!(aw!(anon().authenticate(Auth::Login { username: "usernameee".to_string(), password: "passwordeee".to_string() })).is_err())
+    }
+
 }

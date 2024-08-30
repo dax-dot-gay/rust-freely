@@ -1,8 +1,13 @@
 pub mod api_wrapper {
+    use std::fmt::Debug;
+
     use reqwest::{header, Client as ReqwestClient, Error, Method, RequestBuilder, Response, Url};
     use serde::{de::DeserializeOwned, Serialize};
 
-    use crate::api_client::{ApiError, Client, RequestError};
+    use crate::{
+        api_client::{ApiError, Client, RequestError},
+        api_models::responses::ResponseModel,
+    };
 
     #[derive(Clone, Debug)]
     pub struct Api {
@@ -68,12 +73,23 @@ pub mod api_wrapper {
             }
         }
 
-        pub async fn extract_response<T: DeserializeOwned>(
+        pub async fn extract_response<T: DeserializeOwned + Debug>(
             &self,
             response: Response,
         ) -> Result<T, ApiError> {
             match response.error_for_status() {
-                Ok(resp) => resp.json::<T>().await.or(Err(ApiError::ParseError {})),
+                Ok(resp) => {
+                    let text = resp.text().await.unwrap();
+                    serde_json::from_str::<ResponseModel>(text.clone().as_str())
+                        .or(Err(ApiError::ParseError {
+                            text: text.clone(),
+                        }))
+                        .and_then(|v| {
+                            serde_json::from_value::<T>(v.data).or(Err(ApiError::ParseError {
+                                text: text.clone(),
+                            }))
+                        })
+                }
                 Err(resp) => Err(ApiError::Request {
                     error: RequestError {
                         code: resp.status().map_or(0, |s| s.as_u16()),
@@ -83,27 +99,42 @@ pub mod api_wrapper {
             }
         }
 
-        pub async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T, ApiError> {
+        pub async fn get<T: DeserializeOwned + Debug>(
+            &self,
+            endpoint: &str,
+        ) -> Result<T, ApiError> {
             if let Ok(response) = self.request(endpoint, Method::GET)?.send().await {
                 self.extract_response::<T>(response).await
             } else {
-                Err(ApiError::ConnectionError{})
+                Err(ApiError::ConnectionError {})
             }
         }
 
-        pub async fn delete<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T, ApiError> {
+        pub async fn delete<T: DeserializeOwned + Debug>(
+            &self,
+            endpoint: &str,
+        ) -> Result<T, ApiError> {
             if let Ok(response) = self.request(endpoint, Method::DELETE)?.send().await {
                 self.extract_response::<T>(response).await
             } else {
-                Err(ApiError::ConnectionError{})
+                Err(ApiError::ConnectionError {})
             }
         }
 
-        pub async fn post<T: DeserializeOwned, D: Serialize>(&self, endpoint: &str, data: Option<D>) -> Result<T, ApiError> {
-            if let Ok(response) = self.request(endpoint, Method::POST)?.json(&data).send().await {
+        pub async fn post<T: DeserializeOwned + Debug, D: Serialize>(
+            &self,
+            endpoint: &str,
+            data: Option<D>,
+        ) -> Result<T, ApiError> {
+            if let Ok(response) = self
+                .request(endpoint, Method::POST)?
+                .json(&data)
+                .send()
+                .await
+            {
                 self.extract_response::<T>(response).await
             } else {
-                Err(ApiError::ConnectionError{})
+                Err(ApiError::ConnectionError {})
             }
         }
     }
