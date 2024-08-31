@@ -1,7 +1,7 @@
 pub mod api_client {
     use serde_derive::{Deserialize, Serialize};
 
-    use crate::{api_models, api_wrapper::Api};
+    use crate::{api_handlers::UserHandler, api_models::{self, collections::Collection, posts::Post}, api_wrapper::Api};
 
     #[derive(Clone, Serialize, Deserialize, Debug)]
     pub enum Auth {
@@ -85,6 +85,22 @@ pub mod api_client {
 
         pub fn api(&self) -> Api {
             Api::new(self.clone())
+        }
+
+        pub async fn user(&self) -> Result<UserHandler, ApiError> {
+            if self.is_authenticated() {
+                Ok(UserHandler::create(self.clone()).await)
+            } else {
+                Err(ApiError::LoggedOut {  })
+            }
+        }
+
+        pub async fn posts(&self) -> Result<Vec<Post>, ApiError> {
+            self.user().await?.posts().await
+        }
+
+        pub async fn collections(&self) -> Result<Vec<Collection>, ApiError> {
+            self.user().await?.collections().await
         }
     }
 }
