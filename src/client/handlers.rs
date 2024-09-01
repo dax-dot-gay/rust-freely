@@ -1,8 +1,14 @@
 pub mod api_handlers {
 
+    use serde_derive::{Deserialize, Serialize};
+
     use crate::{
         api_client::{ApiError, Client},
-        api_models::{collections::Collection, posts::{Post, PostCreation, PostCreationBuilder}, users::User},
+        api_models::{
+            collections::Collection,
+            posts::{Post, PostCreation, PostCreationBuilder},
+            users::User,
+        },
     };
 
     #[derive(Clone, Debug)]
@@ -92,24 +98,93 @@ pub mod api_handlers {
 
     #[derive(Clone, Debug)]
     pub struct PostHandler {
-        client: Client
+        client: Client,
     }
 
     impl PostHandler {
         pub fn new(client: Client) -> Self {
-            PostHandler { client: client.clone() }
+            PostHandler {
+                client: client.clone(),
+            }
         }
 
         pub async fn get(&self, id: &str) -> Result<Post, ApiError> {
-            self.client.api().get::<Post>(format!("/posts/{id}").as_str()).await.and_then(|mut p| Ok(p.with_client(self.client.clone())))
+            self.client
+                .api()
+                .get::<Post>(format!("/posts/{id}").as_str())
+                .await
+                .and_then(|mut p| Ok(p.with_client(self.client.clone())))
         }
 
         pub fn create(&self, body: String) -> PostCreationBuilder {
-            PostCreationBuilder::default().client(Some(self.client.clone())).body(body).clone()
+            PostCreationBuilder::default()
+                .client(Some(self.client.clone()))
+                .body(body)
+                .clone()
         }
 
         pub async fn publish(&self, post: PostCreation) -> Result<Post, ApiError> {
-            self.client.api().post::<Post, PostCreation>("/posts", Some(post)).await.and_then(|mut p| Ok(p.with_client(self.client.clone())))
+            if let Some(collection) = post.collection.clone() {
+                self.client
+                    .api()
+                    .post::<Post, PostCreation>(format!("/collections/{collection}/post").as_str(), Some(post))
+                    .await
+                    .and_then(|mut p| Ok(p.with_client(self.client.clone())))
+            } else {
+                self.client
+                    .api()
+                    .post::<Post, PostCreation>("/posts", Some(post))
+                    .await
+                    .and_then(|mut p| Ok(p.with_client(self.client.clone())))
+            }
+        }
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    struct CollectionParameters {
+        pub alias: Option<String>,
+        pub title: Option<String>,
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct CollectionHandler {
+        client: Client,
+    }
+
+    impl CollectionHandler {
+        pub fn new(client: Client) -> Self {
+            CollectionHandler {
+                client: client.clone(),
+            }
+        }
+
+        pub async fn create(
+            &self,
+            alias: Option<String>,
+            title: Option<String>,
+        ) -> Result<Collection, ApiError> {
+            if alias.is_none() && title.is_none() {
+                return Err(ApiError::UsageError {});
+            }
+
+            if !self.client.is_authenticated() {
+                return Err(ApiError::LoggedOut {});
+            }
+
+            let params = CollectionParameters { alias, title };
+            self.client
+                .api()
+                .post::<Collection, CollectionParameters>("/collections", Some(params))
+                .await
+                .and_then(|mut v| Ok(v.with_client(self.client.clone())))
+        }
+
+        pub async fn get(&self, alias: &str) -> Result<Collection, ApiError> {
+            self.client
+                .api()
+                .get::<Collection>(format!("/collections/{alias}").as_str())
+                .await
+                .and_then(|mut v| Ok(v.with_client(self.client.clone())))
         }
     }
 }
