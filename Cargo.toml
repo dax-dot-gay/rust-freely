@@ -1,8 +1,8 @@
 [package]
 name = "rust-freely"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-license-file = "LICENSE"
+license = "MIT"
 description = "An asynchronous wrapper for the WriteFreely/Write.as API"
 homepage = "https://github.com/dax-dot-gay/rust-freely"
 repository = "https://github.com/dax-dot-gay/rust-freely"

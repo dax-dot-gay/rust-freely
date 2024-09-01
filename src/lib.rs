@@ -12,3 +12,6 @@ pub use client::api_client;
 pub use client::api_models;
 pub use client::api_wrapper;
 pub use client::api_handlers;
+
+pub use client::api_client::{Client, ApiError, Auth};
+pub use client::api_models::{collections::{Collection, CollectionVisibility}, posts::{Post, PostAppearance}, users::User};
