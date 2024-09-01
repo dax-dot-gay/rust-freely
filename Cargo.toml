@@ -2,6 +2,13 @@
 name = "rust-freely"
 version = "0.1.0"
 edition = "2021"
+license-file = "LICENSE"
+description = "An asynchronous wrapper for the WriteFreely/Write.as API"
+homepage = "https://github.com/dax-dot-gay/rust-freely"
+repository = "https://github.com/dax-dot-gay/rust-freely"
+readme = "README.md"
+keywords = ["network", "api", "writefreely", "writeas", "async"]
+categories = ["api-bindings", "asynchronous", "web-programming::http-client"]
 
 [dependencies]
 chrono = { version = "0.4.38", features = ["alloc", "serde"] }
