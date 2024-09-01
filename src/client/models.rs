@@ -19,7 +19,7 @@ pub mod api_models {
 
         use crate::api_client::{ApiError, Client};
 
-        use super::collections::Collection;
+        use super::collections::{Collection, MovePost, MoveResult};
 
         #[derive(Clone, Debug, Serialize, Deserialize)]
         pub enum PostAppearance {
@@ -133,6 +133,30 @@ pub mod api_models {
                         client.api().extract_response(result).await
                     } else {
                         Err(ApiError::ConnectionError {})
+                    }
+                } else {
+                    Err(ApiError::UsageError {})
+                }
+            }
+
+            pub async fn move_to(&self, collection: &str) -> Result<MoveResult, ApiError> {
+                if let Some(client) = self.client.clone() {
+                    match client.collections().get(collection).await {
+                        Ok(coll) => {
+                            match client.is_authenticated() {
+                                true => coll.take_posts(&[MovePost::new(&self.id)]).await,
+                                false => coll.take_posts(&[MovePost {id: self.id.clone(), token: self.token.clone()}]).await
+                            }.and_then(|v| {
+                                match v.get(0) {
+                                    Some(item) => match item {
+                                        Ok(result) => Ok(result.clone()),
+                                        Err(result) => Ok(result.clone())
+                                    },
+                                    None => Err(ApiError::UnknownError {  })
+                                }
+                            })
+                        },
+                        Err(e) => Err(e) 
                     }
                 } else {
                     Err(ApiError::UsageError {})
