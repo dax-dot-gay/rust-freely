@@ -24,7 +24,8 @@ pub mod api_client {
         UrlError{},
         ParseError{text: String},
         ConnectionError{},
-        LoggedOut{}
+        LoggedOut{},
+        UsageError{}
     }
 
 
@@ -89,7 +90,7 @@ pub mod api_client {
 
         pub async fn user(&self) -> Result<UserHandler, ApiError> {
             if self.is_authenticated() {
-                Ok(UserHandler::create(self.clone()).await)
+                Ok(UserHandler::new(self.clone()).await)
             } else {
                 Err(ApiError::LoggedOut {  })
             }

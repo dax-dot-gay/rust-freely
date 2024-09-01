@@ -14,10 +14,12 @@ pub mod api_models {
     }
 
     pub mod posts {
+        use derive_builder::Builder;
+        use reqwest::Method;
         use serde_derive::{Deserialize, Serialize};
         use chrono::{DateTime, Utc};
 
-        use crate::api_client::Client;
+        use crate::api_client::{ApiError, Client};
 
         use super::collections::Collection;
 
@@ -41,6 +43,32 @@ pub mod api_models {
             Code
         }
 
+        #[derive(Clone, Debug, Serialize, Deserialize, Builder)]
+        pub struct PostUpdate {
+            #[serde(skip_serializing)]
+            pub client: Option<Client>,
+
+            #[serde(skip_serializing)]
+            pub id: String,
+
+            pub token: Option<String>,
+            pub body: String,
+            pub title: Option<String>,
+            pub font: Option<PostAppearance>,
+            pub lang: Option<String>,
+            pub rtl: bool
+        }
+
+        impl PostUpdate {
+            pub async fn update(&self) -> Result<Post, ApiError> {
+                if let Some(client) = self.client.clone() {
+                    client.api().post::<Post, PostUpdate>(format!("/posts/{}", self.id).as_str(), Some(self.clone())).await
+                } else {
+                    Err(ApiError::UsageError {  })
+                }
+            }
+        }
+
         #[derive(Clone, Debug, Serialize, Deserialize)]
         pub struct Post {
             pub client: Option<Client>,
@@ -54,7 +82,8 @@ pub mod api_models {
             pub body: String,
             pub tags: Vec<String>,
             pub views: Option<u64>,
-            pub collection: Option<Collection>
+            pub collection: Option<Collection>,
+            pub token: Option<String>
         }
 
         impl Post {
@@ -62,10 +91,41 @@ pub mod api_models {
                 self.client = Some(client);
                 self.clone()
             }
+
+            pub fn build_update(&self, body: String) -> PostUpdateBuilder {
+                PostUpdateBuilder::default().client(self.client.clone()).id(self.id.clone()).body(body).clone()
+            }
+
+            pub async fn update(&self, update: PostUpdate) -> Result<Post, ApiError> {
+                if let Some(client) = self.client.clone() {
+                    client.api().post::<Post, PostUpdate>(format!("/posts/{}", self.id).as_str(), Some(update.clone())).await
+                } else {
+                    Err(ApiError::UsageError {  })
+                }
+            }
+
+            pub async fn delete(&self) -> Result<(), ApiError> {
+                if let Some(client) = self.client.clone() {
+                    let mut request = client.api().request(format!("/posts/{}", self.id).as_str(), Method::DELETE).unwrap();
+                    if !client.is_authenticated() && self.token.is_some() {
+                        request = request.query(&[("token", self.token.clone().unwrap())]);
+                    }
+                    if let Ok(result) = request.send().await {
+                        client.api().extract_response(result).await
+                    } else {
+                        Err(ApiError::ConnectionError {  })
+                    }
+                } else {
+                    Err(ApiError::UsageError {  })
+                }
+            }
         }
 
-        #[derive(Clone, Debug, Serialize, Deserialize)]
+        #[derive(Clone, Debug, Serialize, Deserialize, Builder)]
         pub struct PostCreation {
+            #[serde(skip_serializing)]
+            pub client: Option<Client>,
+
             pub body: String,
             pub title: Option<String>,
             pub font: Option<PostAppearance>,
@@ -73,6 +133,18 @@ pub mod api_models {
             pub rtl: Option<bool>,
             pub created: Option<DateTime<Utc>>
         }
+
+        impl PostCreation {
+            pub async fn publish(&self) -> Result<Post, ApiError> {
+                if let Some(client) = self.client.clone() {
+                    client.api().post::<Post, PostCreation>("/posts", Some(self.clone())).await
+                } else {
+                    Err(ApiError::UsageError {  })
+                }
+            }
+        }
+
+        
     }
 
     pub mod responses {

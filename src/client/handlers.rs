@@ -1,7 +1,8 @@
 pub mod api_handlers {
+
     use crate::{
         api_client::{ApiError, Client},
-        api_models::{collections::Collection, posts::Post, users::User},
+        api_models::{collections::Collection, posts::{Post, PostCreation, PostCreationBuilder}, users::User},
     };
 
     #[derive(Clone, Debug)]
@@ -11,7 +12,7 @@ pub mod api_handlers {
     }
 
     impl UserHandler {
-        pub async fn create(client: Client) -> Self {
+        pub async fn new(client: Client) -> Self {
             if client.is_authenticated() {
                 UserHandler {
                     client: client.clone(),
@@ -86,6 +87,29 @@ pub mod api_handlers {
             } else {
                 Err(ApiError::LoggedOut {})
             }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct PostHandler {
+        client: Client
+    }
+
+    impl PostHandler {
+        pub fn new(client: Client) -> Self {
+            PostHandler { client: client.clone() }
+        }
+
+        pub async fn get(&self, id: &str) -> Result<Post, ApiError> {
+            self.client.api().get::<Post>(format!("/posts/{id}").as_str()).await.and_then(|mut p| Ok(p.with_client(self.client.clone())))
+        }
+
+        pub fn create(&self, body: String) -> PostCreationBuilder {
+            PostCreationBuilder::default().client(Some(self.client.clone())).body(body).clone()
+        }
+
+        pub async fn publish(&self, post: PostCreation) -> Result<Post, ApiError> {
+            self.client.api().post::<Post, PostCreation>("/posts", Some(post)).await.and_then(|mut p| Ok(p.with_client(self.client.clone())))
         }
     }
 }
