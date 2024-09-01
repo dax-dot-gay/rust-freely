@@ -1,3 +1,4 @@
+/// Provides convenience functions for HTTP requests & serialization
 pub mod api_wrapper {
     use std::fmt::Debug;
 
@@ -10,27 +11,33 @@ pub mod api_wrapper {
     };
 
     #[derive(Clone, Debug)]
+    /// Wrapper struct for API, implements all API methods. Generally not useful for clients.
     pub struct Api {
         client: Client,
     }
 
     impl Api {
+        /// Creates a new Api instance with a passed [Client]
         pub fn new(client: Client) -> Self {
             Api { client }
         }
 
+        /// Fetches the base URL from the [Client] instance
         pub fn base(&self) -> String {
             self.client.url()
         }
 
+        /// Fetches the API token from the [Client] instance
         pub fn token(&self) -> Option<String> {
             self.client.token()
         }
 
+        /// Determines if the current session is authenticated
         pub fn is_authenticated(&self) -> bool {
             self.client.is_authenticated()
         }
 
+        /// Assembles an API url from the base url and an endpoint.
         pub fn url(&self, endpoint: &str) -> Result<Url, ApiError> {
             if let Ok(result) = Url::parse(self.base().as_str()) {
                 if let Ok(result) = result.join(vec!["/api", endpoint].join("").as_str()) {
@@ -57,6 +64,7 @@ pub mod api_wrapper {
             ReqwestClient::builder().default_headers(headers).build()
         }
 
+        /// Assembles a request builder with default settings
         pub fn request(&self, endpoint: &str, method: Method) -> Result<RequestBuilder, ApiError> {
             if let Ok(http) = self.http() {
                 if let Ok(url) = self.url(endpoint) {
@@ -74,6 +82,7 @@ pub mod api_wrapper {
             }
         }
 
+        /// Extracts a reponse with serde
         pub async fn extract_response<T: DeserializeOwned + Debug>(
             &self,
             response: Response,
@@ -100,6 +109,7 @@ pub mod api_wrapper {
             }
         }
 
+        /// Executes a GET request.
         pub async fn get<T: DeserializeOwned + Debug>(
             &self,
             endpoint: &str,
@@ -111,6 +121,7 @@ pub mod api_wrapper {
             }
         }
 
+        /// Executes a DELETE request
         pub async fn delete(
             &self,
             endpoint: &str,
@@ -131,6 +142,7 @@ pub mod api_wrapper {
             }
         }
 
+        /// Executes a POST request
         pub async fn post<T: DeserializeOwned + Debug, D: Serialize>(
             &self,
             endpoint: &str,

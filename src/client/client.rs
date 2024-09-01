@@ -1,45 +1,85 @@
+/// This module contains the main [Client] struct, which provides access to all of the other types & methods.
 pub mod api_client {
     use serde_derive::{Deserialize, Serialize};
 
     use crate::{api_handlers::{CollectionHandler, PostHandler, UserHandler}, api_models, api_wrapper::Api};
 
     #[derive(Clone, Serialize, Deserialize, Debug)]
+    /// The desired authentication method
     pub enum Auth {
+        /// Authenticate with an API token
         Token(String),
-        Login{username: String, password: String}
+
+        /// Authenticate with a username and password
+        Login{
+            /// Login username
+            username: String, 
+
+            /// Login password
+            password: String
+        }
     }
 
     #[derive(Clone, Serialize, Deserialize, Debug)]
+    /// Represents a request error (see [ApiError])
     pub struct RequestError {
+        /// Error code (HTTP status)
         pub code: u16,
+
+        /// Optional result information
         pub reason: Option<String>
     }
 
     #[derive(Clone, Serialize, Deserialize, Debug)]
     #[serde(tag = "type")]
+    /// The main Error enum for this library
     pub enum ApiError {
-        Request{error: RequestError},
+        /// Raised if the API returns a non-success status code
+        Request{
+            /// RequestError instance
+            error: RequestError
+        },
+
+        /// Raised if authentication fails
         AuthenticationError{},
+
+        /// Raised on an unexpected error. Should never appear in normal operation
         UnknownError{},
+
+        /// Raised if URL creation fails
         UrlError{},
-        ParseError{text: String},
+
+        /// Raised if data parsing fails
+        ParseError{
+            /// Text that serde failed to parse
+            text: String
+        },
+
+        /// Raised if connecting to the API server fails
         ConnectionError{},
+
+        /// Raised if an action cannot be performed when logged out
         LoggedOut{},
+
+        /// Raised if invalid data was passed from the user, or if no [Client] instance is defined on the referenced struct
         UsageError{}
     }
 
 
     #[derive(Clone, Serialize, Deserialize, Debug)]
+    /// Main Client struct
     pub struct Client {
         _base_url: String,
         _token: Option<String>,
     }
 
     impl Client {
+        /// Creates a new client with a base URL
         pub fn new(base: String) -> Self {
             Client { _base_url: base, _token: None }
         }
 
+        /// Authenticates with an [Auth] enum value
         pub async fn authenticate(&mut self, auth: Auth) -> Result<Self, ApiError> {
             match auth {
                 Auth::Token(token) => {
@@ -58,6 +98,7 @@ pub mod api_client {
             }
         }
 
+        /// Deauthenticates from the server
         pub async fn logout(&mut self) -> Result<Self, ApiError> {
             if self.is_authenticated() {
                 match self.api().delete("/auth/me").await {
@@ -72,22 +113,27 @@ pub mod api_client {
             }
         }
 
+        /// Retrieves the base URL
         pub fn url(&self) -> String {
             self._base_url.clone()
         }
 
+        /// Retrieves the access token
         pub fn token(&self) -> Option<String> {
             self._token.clone()
         }
 
+        /// Checks if the instance is authenticated
         pub fn is_authenticated(&self) -> bool {
             self._token.is_some()
         }
 
+        /// Returns a new [Api] instance. In general, a new instance should be created for each separate operation to prevent cloned [Client] desync.
         pub fn api(&self) -> Api {
             Api::new(self.clone())
         }
 
+        /// Returns a wrapper around User methods
         pub async fn user(&self) -> Result<UserHandler, ApiError> {
             if self.is_authenticated() {
                 Ok(UserHandler::new(self.clone()).await)
@@ -96,10 +142,12 @@ pub mod api_client {
             }
         }
 
+        /// Returns a wrapper around Post methods
         pub fn posts(&self) -> PostHandler {
             PostHandler::new(self.clone())
         }
 
+        /// Returns a wrapper around Collection methods
         pub fn collections(&self) -> CollectionHandler {
             CollectionHandler::new(self.clone())
         }
